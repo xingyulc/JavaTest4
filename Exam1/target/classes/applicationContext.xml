@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+    <context:component-scan base-package="com.hand.api.controller"></context:component-scan>
+    <context:component-scan base-package="com.hand.api.service"></context:component-scan>
+    <context:component-scan base-package="com.hand.infra.aop"></context:component-scan>
+
+    <context:property-placeholder location="classpath:db.properties"/>
+
+    <!-- 定义数据源 -->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url"
+                  value="jdbc:mysql://#{systemEnvironment['MYSQL_IP']}/${jdbc.dbName}?useSSL=false"/>
+        <property name="username" value="#{systemEnvironment['MYSQL_NAME']}"/>
+        <property name="password" value="#{systemEnvironment['MYSQL_PWD']}"/>
+    </bean>
+
+    <!--JDBC事务管理器,开启Spring事物处理,数据源必须和SqlSessionFactory的数据源一致 -->
+    <bean id="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!--基于注解的事务配置 -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+    <bean class="com.hand.infra.aop.AopRecord"></bean>
+    <bean id="aopRecord" class="com.hand.infra.aop.AopRecord"></bean>
+    <!-- 配置 AOP -->
+    <aop:config>
+        <!-- 配置切点表达式 -->
+        <aop:pointcut expression="execution(* com.hand.api.service.impl.FilmServiceImpl.*(..))"
+                      id="pointcut"/>
+        <!-- 配置切面及通知 -->
+        <aop:aspect ref="aopRecord" order="2">
+            <aop:before method="BeforeInsertFilmEvent" pointcut-ref="pointcut"/>
+            <aop:after method="AfterInsertFilmEvent" pointcut-ref="pointcut"/>
+        </aop:aspect>
+    </aop:config>
+
+    <!--配置sql会话工厂-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="typeAliasesPackage" value="com.hand.domain.entity"/>
+        <property name="configLocation" value="classpath:applicationContext-mybatis.xml"/>
+        <property name="mapperLocations" value="classpath:com/hand/infra/mapper/*.xml"/>
+    </bean>
+    <!--扫描mapper接口包-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.hand.infra.mapper"/>
+        <!--<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property>-->
+    </bean>
+
+
+
+
+</beans>
